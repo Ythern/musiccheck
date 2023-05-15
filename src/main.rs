@@ -1,5 +1,6 @@
 use std::fs;
 use reqwest;
+use tokio::io::AsyncWriteExt;
 
 #[tokio::main]
 async fn main() {
@@ -28,8 +29,11 @@ async fn main() {
                 + "&secret=" + secret);
             let body = client.get(url)
                 .send()
+                .await
+                .unwrap()
+                .json::<serde_json::Value>()
                 .await;
-            println!("body = {:?}", body);
+            println!("body = {:#?}", body);
             println!("{}",url)
         }
     }
