@@ -3,7 +3,7 @@ use reqwest;
 
 #[tokio::main]
 async fn main() {
-    let directory = "D:/Musique";
+    let directory = "C:/Users/Ythern/Documents/Musique";
     let blacklist = vec![
         String::from("Various Artists"),
         String::from("Music Bee")
@@ -15,7 +15,8 @@ async fn main() {
     let paths = fs::read_dir(directory).unwrap();
     let client = reqwest::Client::builder()
         .user_agent("ythern")
-        .build();
+        .build()
+        .unwrap();
 
     for path in paths {
         let path_string = path.unwrap().path().display().to_string().split_off(len);
