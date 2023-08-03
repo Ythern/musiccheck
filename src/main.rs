@@ -4,6 +4,17 @@ use std::io::Write;
 use reqwest;
 use std::thread;
 use std::time::Duration;
+use serde_derive::Deserialize;
+
+#[derive(Deserialize)]
+struct Answer {
+    artists: Vec<Artist>,
+}
+
+#[derive(Deserialize)]
+struct Artist {
+    id: String,
+}
 
 #[tokio::main]
 async fn main() {
@@ -13,8 +24,17 @@ async fn main() {
     let directory = "D:/Musique";
     let blacklist = vec![
         String::from("Various Artists"),
-        String::from("Music Bee"),
-        String::from("Gogojuice")
+        String::from("MusicBee"),
+        String::from("AJR"),
+        String::from("Apashe"),
+        String::from("Delta Heavy"),
+        String::from("PSY"),
+        String::from("Eurythmics"),
+        String::from("Ken Ashcorp"),
+        String::from("Smash Mouth"),
+        String::from("Unlike Pluto"),
+        String::from("Imagine Dragons"),
+        String::from("Lemaitre")
     ];
     let len = directory.len() + 1;
     let paths = fs::read_dir(directory).unwrap();
@@ -31,7 +51,7 @@ async fn main() {
         let mut owned_album = Vec::new();
         for path_artist in paths_artist {
             let path_artist_string = path_artist.unwrap().path().display().to_string().split_off(artist_len);
-            owned_album.push(remove_whitespace(&(&path_artist_string)));
+            owned_album.push(simplify(&(&path_artist_string)));
         }
         if !blacklist.contains(path_str) {
             let url = &("https://musicbrainz.org/ws/2/artist/?query=".to_owned() +
@@ -41,40 +61,42 @@ async fn main() {
             let body = client.get(url)
                 .send()
                 .await
-                .unwrap()
-                .json::<serde_json::Value>()
-                .await;
+                .unwrap();
             thread::sleep(one_sec);
-            let id = body.unwrap()["artists"][0]["id"].as_str().unwrap().to_owned();
-            let url_artist = &("https://musicbrainz.org/ws/2/release-group?query=%22%22%20AND%20arid:".to_owned() +
-                &id
-                + "%20NOT%20primarytype:single%20NOT%20secondarytype:*&fmt=json");
-            println!("{}", url_artist);
-            let release_list = client.get(url_artist)
-                .send()
-                .await
-                .unwrap()
-                .json::<serde_json::Value>()
-                .await;
-            thread::sleep(one_sec);
-            for releases in release_list.unwrap()["release-groups"].as_array(){
-                let len = releases.len();
-                while i < len {
-                    let album = &releases[i]["title"].as_str().unwrap().to_string();
-                    if !owned_album.contains(&remove_whitespace(&album)) {
-                        data_file.write((path_str.to_owned() + " - " + album + "\n").as_bytes()).expect("write failed");
+            let answer: Answer = body.json().await.unwrap();
+            if !answer.artists.is_empty() {
+                let id = &answer.artists.get(0).unwrap().id;
+                let url_artist = &("https://musicbrainz.org/ws/2/release-group?query=%22%22%20AND%20arid:".to_owned() +
+                    &id
+                    + "%20NOT%20primarytype:single%20NOT%20secondarytype:*&fmt=json");
+                println!("{}", url_artist);
+                let release_list = client.get(url_artist)
+                    .send()
+                    .await
+                    .unwrap()
+                    .json::<serde_json::Value>()
+                    .await;
+                thread::sleep(one_sec);
+                for releases in release_list.unwrap()["release-groups"].as_array() {
+                    let len = releases.len();
+                    while i < len {
+                        let album = &releases[i]["title"].as_str().unwrap().to_string();
+                        if !owned_album.contains(&simplify(&album)) {
+                            data_file.write((path_str.to_owned() + " - " + album + "\n").as_bytes()).expect("write failed");
+                        }
+                        i += 1;
                     }
-                    i += 1;
+                    i = 0;
                 }
-                i = 0;
             }
         }
     }
 }
 
-fn remove_whitespace(s: &str) -> String {
-    s.replace(&['\u{200b}'][..], "").chars().filter(|c| !c.is_whitespace()).collect()
+fn simplify(s: &str) -> String {
+    s.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect()
 }
+
 
 
 
